@@ -208,7 +208,7 @@ class GitHubAnyEvent(SendMessage):
         # Triggered when a Wiki page is created or updated.
         elif event == "gollum":
             icon = "update"
-            msg = u"{%s} %n page(s) created/updated on the wiki:\n"\
+            msg = u"{%s} %s page(s) created/updated on the wiki:\n"\
                   % (payload["repository"]["name"], len(payload["pages"]))
             for page in payload["pages"]:
                 msg += u"   - %s: %s {%s}\n" % (page["action"], page["title"], page["html_url"])
@@ -229,7 +229,7 @@ class GitHubAnyEvent(SendMessage):
             else:
                 icon = "create"
             issue = payload["issue"]
-            msg = u"{%s} issue #%n %s by %s: %s {%s}\n"\
+            msg = u"{%s} issue #%s %s by %s: %s {%s}\n"\
                   % (payload["repository"]["name"], issue["number"], action, issue["user"]["login"],
                      issue["title"], issue["html_url"])
 
@@ -249,7 +249,7 @@ class GitHubAnyEvent(SendMessage):
                 user = pr["user"]["login"]
             else:
                 user = u"? (creator: %s)" %(pr["user"]["login"])
-            msg = u"{%s} PR #%n %s by %s: %s {%s}\n"\
+            msg = u"{%s} PR #%s %s by %s: %s {%s}\n"\
                   % (payload["repository"]["name"], pr["number"], action, user, pr["title"], pr["html_url"])
 
         # Triggered when a comment is created on a portion of the unified diff of a pull request.
@@ -264,7 +264,7 @@ class GitHubAnyEvent(SendMessage):
                 size = payload["size"]
             else:
                 size = len(payload["commits"])
-            msg = u"{%s} %n commit(s) pushed to %s by %s (last commit author) {%s}\n"\
+            msg = u"{%s} %s commit(s) pushed to %s by %s (last commit author) {%s}\n"\
                   % (payload["repository"]["name"], size, payload["ref"], user, payload["compare"])
 
         # Triggered when the status of a Git commit changes.
