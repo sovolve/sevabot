@@ -304,7 +304,6 @@ class GitHubAnyEvent(SendMessage):
             msg = u"%s %s" % (icon, msg)
 
         logger.error("GitHub any event %s" % dir(request.form))
-
         return msg
 
 
