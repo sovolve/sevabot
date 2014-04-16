@@ -371,7 +371,7 @@ def configure(sevabot, settings, server):
     server.add_url_rule('/github-pull-request/<string:chat_id>/<string:shared_secret>/', view_func=GitHubPullRequest.as_view(str('send_message_github_2'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
     # rule for notifying on github any event
-    server.add_url_rule('/github-any-event/<string:chat_id>/<string:shared_secret>/', view_func=GitHubPullRequest.as_view(str('send_message_github_3'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
+    server.add_url_rule('/github-any-event/<string:chat_id>/<string:shared_secret>/', view_func=GitHubAnyEvent.as_view(str('send_message_github_3'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
     server.add_url_rule('/jenkins-notifier/<string:chat_id>/<string:shared_secret>/', view_func=JenkinsNotifier.as_view(str('send_message_jenkins'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
