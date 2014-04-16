@@ -258,6 +258,9 @@ class GitHubAnyEvent(SendMessage):
             elif action == "opened":
                 icon = "create"
                 user = pr["user"]["login"]
+            elif action == "synchronize":
+                icon = "updated"
+                action = "updated"
             else:
                 if not user:
                     user = u"? (creator: %s)" %(pr["user"]["login"])
