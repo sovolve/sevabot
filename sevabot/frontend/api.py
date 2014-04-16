@@ -193,7 +193,7 @@ class GitHubAnyEvent(SendMessage):
     def compose(self):
         payload = json.loads(request.form["payload"])
         event = request.headers["X-Github-Event"]
-        logger.info("GitHub request ({0}) payload: {1}".format(event, ", ".join(payload.keys())))
+        logger.info("GitHub request ({0}) payload: {1}".format(event, payload))
 
         no_message = u""
         msg = no_message
@@ -247,20 +247,19 @@ class GitHubAnyEvent(SendMessage):
             action = payload["action"]
             if "sender" in payload:
                 logger.info("GitHub payload sender: %s" % payload["sender"])
+                user = payload["sender"]
             if action == "closed":
-                if "merged_by" in pr:
+                if "merged_by" in pr and "login" in pr["merged_by"]:
                     icon = "success"
+                    action = "accepted"
                     user = pr["merged_by"]["login"]
                 else:
                     icon = "delete"
-                    user = payload["sender"]["login"]
             elif action == "opened":
                 icon = "create"
                 user = pr["user"]["login"]
             else:
-                if "sender" in payload:
-                    user = pr["sender"]["login"]
-                else:
+                if not user:
                     user = u"? (creator: %s)" %(pr["user"]["login"])
             changed_files = pr["changed_files"]
             ref = clean_git_ref(pr["head"]["ref"])
