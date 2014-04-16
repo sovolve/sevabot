@@ -273,7 +273,7 @@ class GitHubAnyEvent(SendMessage):
             if action == "closed":
                 if "merged_by" in pr and pr["merged_by"]:
                     icon = "success"
-                    action = "accepted"
+                    action = "merged"
                     if user == no_user:
                         user = github_user(pr["merged_by"])
                 else:
@@ -303,7 +303,7 @@ class GitHubAnyEvent(SendMessage):
 
         # Triggered when a repository branch is pushed to.
         elif event == "push":
-            icon = "create"
+            icon = "update"
             if user == no_user:
                 user = github_user(payload["pusher"])
             if "size" in payload:
@@ -344,7 +344,8 @@ class GitHubAnyEvent(SendMessage):
 
         if msg != no_message:
             if icon == "create":
-                icon = u"✸"
+                #icon = u"✸"
+                icon = u"◎"
             elif icon == "delete":
                 icon = u"✖"
             elif icon == "update":
