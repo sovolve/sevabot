@@ -183,6 +183,17 @@ def clean_git_ref(ref):
     return ref.replace("refs/heads/", "")
 
 
+def github_user(obj, default=u"?"):
+    if "name" in obj and obj["name"]:
+        return obj["name"]
+    elif "login" in obj and obj["login"]:
+        return obj["login"]
+    elif obj is basestring and obj:
+        return obj
+    else:
+        return default
+
+
 class GitHubAnyEvent(SendMessage):
     """
     Handle all event types hook from Github.
@@ -193,7 +204,20 @@ class GitHubAnyEvent(SendMessage):
     def compose(self):
         payload = json.loads(request.form["payload"])
         event = request.headers["X-Github-Event"]
-        logger.info("GitHub request ({0}) payload: {1}".format(event, payload))
+
+        url = None
+
+        no_user = u"?"
+        user = no_user
+        if "sender" in payload:
+            user = github_user(payload["sender"])
+
+        no_repo = u"?"
+        repo = no_repo
+        if "repository" in payload:
+            repo = payload["repository"]["name"]
+
+        logger.info("GitHub {0} request on {1} (sender: {2}): {3}".format(event, repo, user, payload))
 
         no_message = u""
         msg = no_message
@@ -202,18 +226,18 @@ class GitHubAnyEvent(SendMessage):
         # Represents a created branch, or tag.
         if event == "create":
             icon = "create"
-            msg = u"{%s} %s created: %s\n" % (payload["repository"]["name"], payload["ref_type"], clean_git_ref(payload["ref"]))
+            msg = u"%s created %s [%s]" % (user, payload["ref_type"], clean_git_ref(payload["ref"]))
 
         # Represents a deleted branch, or tag.
         elif event == "delete":
             icon = "delete"
-            msg = u"{%s} %s deleted: %s\n" % (payload["repository"]["name"], payload["ref_type"], clean_git_ref(payload["ref"]))
+            msg = u"%s deleted %s [%s]" % (user, payload["ref_type"], clean_git_ref(payload["ref"]))
 
         # Triggered when a Wiki page is created or updated.
         elif event == "gollum":
             icon = "update"
-            msg = u"{%s} %s page(s) created/updated on the wiki:\n"\
-                  % (payload["repository"]["name"], len(payload["pages"]))
+            msg = u"%s created/updated %s page(s) on the wiki:\n"\
+                  % (user, len(payload["pages"]))
             for page in payload["pages"]:
                 msg += u"   - %s: %s (%s)\n" % (page["action"], page["title"], page["html_url"])
 
@@ -233,9 +257,10 @@ class GitHubAnyEvent(SendMessage):
             else:
                 icon = "create"
             issue = payload["issue"]
-            msg = u"{%s} issue #%s %s by %s: %s (%s)\n"\
-                  % (payload["repository"]["name"], issue["number"], action, issue["user"]["login"],
-                     issue["title"], issue["html_url"])
+            url = issue["html_url"]
+            if user == no_user:
+                user = github_user(issue["user"])
+            msg = u"%s %s issue #%s: %s" % (user, action, issue["number"], issue["title"])
 
         # Triggered when a user is added as a collaborator to a repository.
         elif event == "member":
@@ -245,30 +270,32 @@ class GitHubAnyEvent(SendMessage):
         elif event == "pull_request":
             pr = payload["pull_request"]
             action = payload["action"]
-            if "sender" in payload:
-                logger.info("GitHub payload sender: %s" % payload["sender"])
-                user = payload["sender"]
             if action == "closed":
-                if "merged_by" in pr and "login" in pr["merged_by"]:
+                if "merged_by" in pr and pr["merged_by"]:
                     icon = "success"
                     action = "accepted"
-                    user = pr["merged_by"]["login"]
+                    if user == no_user:
+                        user = github_user(pr["merged_by"])
                 else:
                     icon = "delete"
             elif action == "opened":
                 icon = "create"
-                user = pr["user"]["login"]
+                if user == no_user:
+                    user = github_user(pr["user"])
             elif action == "synchronize":
                 icon = "updated"
                 action = "updated"
             else:
                 if not user:
-                    user = u"? (creator: %s)" %(pr["user"]["login"])
-            changed_files = pr["changed_files"]
+                    user = github_user(pr["user"])
+            if "changed_files" in pr:
+                changed_files =  pr["changed_files"]
+            else:
+                changed_files = 0
             ref = clean_git_ref(pr["head"]["ref"])
-            repo = payload["repository"]["name"]
-            msg = u"{%s} PR #%s %s by %s: %s, %s changed file(s) on %s (%s)\n"\
-                  % (repo, pr["number"], action, user, pr["title"], changed_files, ref, pr["html_url"])
+            url = pr["html_url"]
+            msg = u"%s %s PR #%s: {%s}, %s changed file(s) on branch [%s]"\
+                  % (user, action, pr["number"], pr["title"], changed_files, ref)
 
         # Triggered when a comment is created on a portion of the unified diff of a pull request.
         elif event == "pull_request_review_comment":
@@ -277,13 +304,15 @@ class GitHubAnyEvent(SendMessage):
         # Triggered when a repository branch is pushed to.
         elif event == "push":
             icon = "create"
-            user = payload["commits"][-1]["author"]["name"]
+            if user == no_user:
+                user = u"%s (last commit author)" % github_user(payload["commits"][-1]["author"])
             if "size" in payload:
                 size = payload["size"]
             else:
                 size = len(payload["commits"])
-            msg = u"{%s} %s commit(s) pushed to %s by %s (last commit author) (%s)\n"\
-                  % (payload["repository"]["name"], size, clean_git_ref(payload["ref"]), user, payload["compare"])
+            url = payload["compare"]
+            msg = u"%s pushed %s commit(s) to [%s]"\
+                  % (user, size, clean_git_ref(payload["ref"]))
 
         # Triggered when the status of a Git commit changes.
         elif event == "status":
@@ -301,8 +330,10 @@ class GitHubAnyEvent(SendMessage):
                     branches.append(clean_git_ref(branch["ref"]))
                 branches = u", ".join(branches)
                 sha = payload["sha"][:5]
-                msg = u"{%s} commit %s status switched to %s on branch(es) %s (%s)\n"\
-                      % (payload["repository"]["name"], sha, state, branches)
+                if "target_url" in payload and payload["target_url"]:
+                    url = payload["target_url"]
+                msg = u"commit [%s] status switched to %s on branch(es) [%s]"\
+                      % (sha, state.upper(), branches)
 
         # Triggered when a user is added to a team or when a repository is added to a team.
         elif event == "team_add":
@@ -324,7 +355,11 @@ class GitHubAnyEvent(SendMessage):
                 icon = u"☠"
             else:
                 icon = u"❖"
-            msg = u"%s %s" % (icon, msg)
+            msg = u"%s %s ▶ %s" % (icon, repo, msg)
+            if url:
+                msg += u" ☛ %s" % url
+            if msg[-1] != u"\n":
+                msg += u"\n"
 
         return msg
 
