@@ -245,14 +245,23 @@ class GitHubAnyEvent(SendMessage):
         elif event == "pull_request":
             pr = payload["pull_request"]
             action = payload["action"]
+            if "sender" in payload:
+                logger.info("GitHub payload sender: %s" % payload["sender"])
             if action == "closed":
-                icon = "success"
-                user = pr["merged_by"]["login"]
+                if "merged_by" in pr:
+                    icon = "success"
+                    user = pr["merged_by"]["login"]
+                else:
+                    icon = "delete"
+                    user = payload["sender"]["login"]
             elif action == "opened":
                 icon = "create"
                 user = pr["user"]["login"]
             else:
-                user = u"? (creator: %s)" %(pr["user"]["login"])
+                if "sender" in payload:
+                    user = pr["sender"]["login"]
+                else:
+                    user = u"? (creator: %s)" %(pr["user"]["login"])
             changed_files = pr["changed_files"]
             ref = clean_git_ref(pr["head"]["ref"])
             repo = payload["repository"]["name"]
