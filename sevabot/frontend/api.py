@@ -188,9 +188,10 @@ class GitHubAnyEvent(SendMessage):
 
     def compose(self):
         payload = json.loads(request.form["payload"])
-
-        logger.info("GitHub request payload: {}".format(", ".join(payload.keys())))
         event = request.headers["X-Github-Event"]
+
+        logger.info("GitHub request ({0}) payload: {1}".format(event, ", ".join(payload.keys())))
+
         no_message = u""
         msg = no_message
         icon = "default"
