@@ -188,7 +188,9 @@ class GitHubAnyEvent(SendMessage):
 
     def compose(self):
         payload = json.loads(request.form["payload"])
-        log = "GitHub any event form(%s) payload(%s)" % (u", ".join(dir(request.form))), u", ".join(dir(payload))
+        form = ", ".join(dir(request.form))
+        pl = ", ".join(dir(payload))
+        log = "GitHub any event form(%s) payload(%s)" % (form, pl)
         logger.error(log)
         event = request.form["event"]
         no_message = u""
