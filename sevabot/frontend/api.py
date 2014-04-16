@@ -355,7 +355,7 @@ class GitHubAnyEvent(SendMessage):
                 icon = u"☠"
             else:
                 icon = u"❖"
-            msg = u"%s %s ▶ %s" % (icon, repo, msg)
+            msg = u"%s %s ⥤ %s" % (icon, repo, msg)
             if url:
                 msg += u" ☛ %s" % url
             if msg[-1] != u"\n":
