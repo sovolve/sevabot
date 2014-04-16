@@ -310,9 +310,10 @@ class GitHubAnyEvent(SendMessage):
                 size = payload["size"]
             else:
                 size = len(payload["commits"])
-            url = payload["compare"]
-            msg = u"%s pushed %s commit(s) to [%s]"\
-                  % (user, size, clean_git_ref(payload["ref"]))
+            if size > 0:
+                url = payload["compare"]
+                msg = u"%s pushed %s commit(s) to [%s]"\
+                      % (user, size, clean_git_ref(payload["ref"]))
 
         # Triggered when the status of a Git commit changes.
         elif event == "status":
