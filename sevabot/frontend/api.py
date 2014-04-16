@@ -187,6 +187,7 @@ class GitHubAnyEvent(SendMessage):
     """
 
     def compose(self):
+
         payload = json.loads(request.form["payload"])
         form = ", ".join(dir(request.form))
         pl = ", ".join(dir(payload))
