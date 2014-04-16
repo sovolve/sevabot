@@ -261,8 +261,12 @@ class GitHubAnyEvent(SendMessage):
         elif event == "push":
             icon = "create"
             user = payload["commits"][-1]["author"]["name"]
+            if "size" in payload:
+                size = payload["size"]
+            else:
+                size = len(payload["commits"])
             msg = u"{%s} %n commit(s) pushed to %s by %s (last commit author) {%s}\n"\
-                  % (payload["repository"]["name"], payload["size"], payload["ref"], user, payload["repository"]["url"])
+                  % (payload["repository"]["name"], size, payload["ref"], user, payload["compare"])
 
         # Triggered when the status of a Git commit changes.
         elif event == "status":
