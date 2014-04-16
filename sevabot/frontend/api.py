@@ -179,6 +179,10 @@ class GitHubPullRequest(SendMessage):
         return msg
 
 
+def clean_git_ref(ref):
+    return ref.replace("refs/heads/", "")
+
+
 class GitHubAnyEvent(SendMessage):
     """
     Handle all event types hook from Github.
@@ -199,12 +203,12 @@ class GitHubAnyEvent(SendMessage):
         # Represents a created branch, or tag.
         if event == "create":
             icon = "create"
-            msg = u"{%s} %s created: %s\n" % (payload["repository"]["name"], payload["ref_type"], payload["ref"])
+            msg = u"{%s} %s created: %s\n" % (payload["repository"]["name"], payload["ref_type"], clean_git_ref(payload["ref"]))
 
         # Represents a deleted branch, or tag.
         elif event == "delete":
             icon = "delete"
-            msg = u"{%s} %s deleted: %s\n" % (payload["repository"]["name"], payload["ref_type"], payload["ref"])
+            msg = u"{%s} %s deleted: %s\n" % (payload["repository"]["name"], payload["ref_type"], clean_git_ref(payload["ref"]))
 
         # Triggered when a Wiki page is created or updated.
         elif event == "gollum":
@@ -212,7 +216,7 @@ class GitHubAnyEvent(SendMessage):
             msg = u"{%s} %s page(s) created/updated on the wiki:\n"\
                   % (payload["repository"]["name"], len(payload["pages"]))
             for page in payload["pages"]:
-                msg += u"   - %s: %s {%s}\n" % (page["action"], page["title"], page["html_url"])
+                msg += u"   - %s: %s (%s)\n" % (page["action"], page["title"], page["html_url"])
 
         # Triggered when an issue comment is created.
         elif event == "issue_comment":
@@ -230,7 +234,7 @@ class GitHubAnyEvent(SendMessage):
             else:
                 icon = "create"
             issue = payload["issue"]
-            msg = u"{%s} issue #%s %s by %s: %s {%s}\n"\
+            msg = u"{%s} issue #%s %s by %s: %s (%s)\n"\
                   % (payload["repository"]["name"], issue["number"], action, issue["user"]["login"],
                      issue["title"], issue["html_url"])
 
@@ -250,8 +254,11 @@ class GitHubAnyEvent(SendMessage):
                 user = pr["user"]["login"]
             else:
                 user = u"? (creator: %s)" %(pr["user"]["login"])
-            msg = u"{%s} PR #%s %s by %s: %s {%s}\n"\
-                  % (payload["repository"]["name"], pr["number"], action, user, pr["title"], pr["html_url"])
+            changed_files = pr["changed_files"]
+            ref = clean_git_ref(pr["head"]["ref"])
+            repo = payload["repository"]["name"]
+            msg = u"{%s} PR #%s %s by %s: %s, %s changed file(s) on %s (%s)\n"\
+                  % (repo, pr["number"], action, user, pr["title"], changed_files, ref, pr["html_url"])
 
         # Triggered when a comment is created on a portion of the unified diff of a pull request.
         elif event == "pull_request_review_comment":
@@ -265,8 +272,8 @@ class GitHubAnyEvent(SendMessage):
                 size = payload["size"]
             else:
                 size = len(payload["commits"])
-            msg = u"{%s} %s commit(s) pushed to %s by %s (last commit author) {%s}\n"\
-                  % (payload["repository"]["name"], size, payload["ref"], user, payload["compare"])
+            msg = u"{%s} %s commit(s) pushed to %s by %s (last commit author) (%s)\n"\
+                  % (payload["repository"]["name"], size, clean_git_ref(payload["ref"]), user, payload["compare"])
 
         # Triggered when the status of a Git commit changes.
         elif event == "status":
@@ -281,10 +288,10 @@ class GitHubAnyEvent(SendMessage):
             if handle:
                 branches = []
                 for branch in payload["branches"]:
-                    branches.append(branch["ref"])
+                    branches.append(clean_git_ref(branch["ref"]))
                 branches = u", ".join(branches)
                 sha = payload["sha"][:5]
-                msg = u"{%s} commit %s status switched to %s on branch(es) %s {%s}\n"\
+                msg = u"{%s} commit %s status switched to %s on branch(es) %s (%s)\n"\
                       % (payload["repository"]["name"], sha, state, branches)
 
         # Triggered when a user is added to a team or when a repository is added to a team.
