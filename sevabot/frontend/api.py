@@ -187,6 +187,7 @@ class GitHubAnyEvent(SendMessage):
     """
 
     def compose(self):
+
         payload = json.loads(request.form["payload"])
         log = "GitHub request: {}".format(request)
         logger.error(log)
