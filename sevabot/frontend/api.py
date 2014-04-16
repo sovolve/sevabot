@@ -217,7 +217,7 @@ class GitHubAnyEvent(SendMessage):
         if "repository" in payload:
             repo = payload["repository"]["name"]
 
-        logger.info("GitHub {0} request on {1} (sender: {2}): {3}".format(event, repo, user, payload))
+        logger.info("GitHub {0} request on {1} (sender: {2}): {3}".format(event, repo, user, payload.keys()))
 
         no_message = u""
         msg = no_message
