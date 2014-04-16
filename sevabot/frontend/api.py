@@ -306,7 +306,6 @@ class GitHubAnyEvent(SendMessage):
         return msg
 
 
-
 class JenkinsNotifier(SendMessage):
 
     """
