@@ -191,6 +191,7 @@ class GitHubAnyEvent(SendMessage):
         event = request.headers["X-Github-Event"]
 
         logger.info("GitHub request ({0}) payload: {1}".format(event, ", ".join(payload.keys())))
+
         no_message = u""
         msg = no_message
         icon = "default"
