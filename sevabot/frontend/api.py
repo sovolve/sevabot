@@ -157,7 +157,8 @@ class GitHubPostCommit(SendMessage):
             msg += u"(*) %s: %s\n%s\n" % (c["author"]["name"], c["message"], c["url"])
 
         return msg
-		
+
+
 class GitHubPullRequest(SendMessage):
     """
     Handle post-commit hook from Github.
@@ -168,7 +169,7 @@ class GitHubPullRequest(SendMessage):
     def compose(self):
 
         payload = json.loads(request.form["payload"])
-        
+
         if payload["action"] == "opened":
             msg = u"(*) %s new pull request %s from %s - %s\n" % (payload["repository"]["name"], payload["number"], payload["pull_request"]["user"]["login"], payload["pull_request"]["html_url"])
         elif payload["action"] == "closed":
@@ -176,6 +177,135 @@ class GitHubPullRequest(SendMessage):
         else:
             msg = u""
         return msg
+
+
+class GitHubAnyEvent(SendMessage):
+    """
+    Handle all event types hook from Github.
+
+    https://developer.github.com/v3/activity/events/types/
+    """
+
+    def compose(self):
+
+        event = request.form["event"]
+        payload = json.loads(request.form["payload"])
+        no_message = u""
+        msg = no_message
+        icon = "default"
+
+        # Represents a created branch, or tag.
+        if event == "create":
+            icon = "create"
+            msg = u"{%s} %s created: %s\n" % (payload["repository"]["name"], payload["ref_type"], payload["ref"])
+
+        # Represents a deleted branch, or tag.
+        elif event == "delete":
+            icon = "delete"
+            msg = u"{%s} %s deleted: %s\n" % (payload["repository"]["name"], payload["ref_type"], payload["ref"])
+
+        # Triggered when a Wiki page is created or updated.
+        elif event == "gollum":
+            icon = "update"
+            msg = u"{%s} %n page(s) created/updated on the wiki:\n"\
+                  % (payload["repository"]["name"], len(payload["pages"]))
+            for page in payload["pages"]:
+                msg += u"   - %s: %s {%s}\n" % (page["action"], page["title"], page["html_url"])
+
+        # Triggered when an issue comment is created.
+        elif event == "issue_comment":
+            msg = no_message
+
+        # Triggered when a commit comment is created.
+        elif event == "commit_comment":
+            msg = no_message
+
+        # Triggered when an issue is created, closed or reopened.
+        elif event == "issues":
+            action = payload["action"]
+            if action == "closed":
+                icon = "success"
+            else:
+                icon = "create"
+            issue = payload["issue"]
+            msg = u"{%s} issue #%n %s by %s: %s {%s}\n"\
+                  % (payload["repository"]["name"], issue["number"], action, issue["user"]["login"],
+                     issue["title"], issue["html_url"])
+
+        # Triggered when a user is added as a collaborator to a repository.
+        elif event == "member":
+            msg = no_message
+
+        # Triggered when a pull request is created, closed, reopened or synchronized.
+        elif event == "pull_request":
+            pr = payload["pull_request"]
+            action = payload["action"]
+            if action == "closed":
+                icon = "success"
+                user = pr["merged_by"]["login"]
+            elif action == "opened":
+                icon = "create"
+                user = pr["user"]["login"]
+            else:
+                user = u"? (creator: %s)" %(pr["user"]["login"])
+            msg = u"{%s} PR #%n %s by %s: %s {%s}\n"\
+                  % (payload["repository"]["name"], pr["number"], action, user, pr["title"], pr["html_url"])
+
+        # Triggered when a comment is created on a portion of the unified diff of a pull request.
+        elif event == "pull_request_review_comment":
+            msg = no_message
+
+        # Triggered when a repository branch is pushed to.
+        elif event == "push":
+            icon = "create"
+            user = payload["commits"][-1]["author"]["name"]
+            msg = u"{%s} %n commit(s) pushed to %s by %s (last commit author) {%s}\n"\
+                  % (payload["repository"]["name"], payload["size"], payload["ref"], user, payload["repository"]["url"])
+
+        # Triggered when the status of a Git commit changes.
+        elif event == "status":
+            state = payload["state"]
+            handle = True
+            if state == "success":
+                icon = "success"
+            elif state == "failure" or state == "error":
+                icon = "error"
+            else:
+                handle = False
+            if handle:
+                branches = []
+                for branch in payload["branches"]:
+                    branches.append(branch["ref"])
+                branches = u", ".join(branches)
+                sha = payload["sha"][:5]
+                msg = u"{%s} commit %s status switched to %s on branch(es) %s {%s}\n"\
+                      % (payload["repository"]["name"], sha, state, branches)
+
+        # Triggered when a user is added to a team or when a repository is added to a team.
+        elif event == "team_add":
+            msg = no_message
+
+        else:
+            msg = no_message
+
+        if msg != no_message:
+            if icon == "create":
+                icon = u"✸"
+            elif icon == "delete":
+                icon = u"✖"
+            elif icon == "update":
+                icon = u"✚"
+            elif icon == "success":
+                icon = u"✔"
+            elif icon == "error":
+                icon = u"☠"
+            else:
+                icon = u"❖"
+            msg = u"%s %s" % (icon, msg)
+
+        return msg
+
+
 
 class JenkinsNotifier(SendMessage):
 
