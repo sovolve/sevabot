@@ -283,10 +283,10 @@ class GitHubAnyEvent(SendMessage):
                 if user == no_user:
                     user = github_user(pr["user"])
             elif action == "synchronize":
-                icon = "updated"
+                icon = "update"
                 action = "updated"
             else:
-                if not user:
+                if user == no_user:
                     user = github_user(pr["user"])
             if "changed_files" in pr:
                 changed_files =  pr["changed_files"]
@@ -305,7 +305,7 @@ class GitHubAnyEvent(SendMessage):
         elif event == "push":
             icon = "create"
             if user == no_user:
-                user = u"%s (last commit author)" % github_user(payload["commits"][-1]["author"])
+                user = github_user(payload["pusher"])
             if "size" in payload:
                 size = payload["size"]
             else:
