@@ -157,7 +157,8 @@ class GitHubPostCommit(SendMessage):
             msg += u"(*) %s: %s\n%s\n" % (c["author"]["name"], c["message"], c["url"])
 
         return msg
-		
+
+
 class GitHubPullRequest(SendMessage):
     """
     Handle post-commit hook from Github.
@@ -168,7 +169,7 @@ class GitHubPullRequest(SendMessage):
     def compose(self):
 
         payload = json.loads(request.form["payload"])
-        
+
         if payload["action"] == "opened":
             msg = u"(*) %s new pull request %s from %s - %s\n" % (payload["repository"]["name"], payload["number"], payload["pull_request"]["user"]["login"], payload["pull_request"]["html_url"])
         elif payload["action"] == "closed":
@@ -176,6 +177,192 @@ class GitHubPullRequest(SendMessage):
         else:
             msg = u""
         return msg
+
+
+def clean_git_ref(ref):
+    return ref.replace("refs/heads/", "")
+
+
+def github_user(obj, default=u"?"):
+    if "name" in obj and obj["name"]:
+        return obj["name"]
+    elif "login" in obj and obj["login"]:
+        return obj["login"]
+    elif obj is basestring and obj:
+        return obj
+    else:
+        return default
+
+
+class GitHubAnyEvent(SendMessage):
+    """
+    Handle all event types hook from Github.
+
+    https://developer.github.com/v3/activity/events/types/
+    """
+
+    def compose(self):
+        payload = json.loads(request.form["payload"])
+        event = request.headers["X-Github-Event"]
+
+        url = None
+
+        no_user = u"?"
+        user = no_user
+        if "sender" in payload:
+            user = github_user(payload["sender"])
+
+        no_repo = u"?"
+        repo = no_repo
+        if "repository" in payload:
+            repo = payload["repository"]["name"]
+
+        logger.info("GitHub {0} request on {1} (sender: {2}): {3}".format(event, repo, user, payload.keys()))
+
+        no_message = u""
+        msg = no_message
+        icon = "default"
+
+        # Represents a created branch, or tag.
+        if event == "create":
+            icon = "create"
+            msg = u"%s created %s [%s]" % (user, payload["ref_type"], clean_git_ref(payload["ref"]))
+
+        # Represents a deleted branch, or tag.
+        elif event == "delete":
+            icon = "delete"
+            msg = u"%s deleted %s [%s]" % (user, payload["ref_type"], clean_git_ref(payload["ref"]))
+
+        # Triggered when a Wiki page is created or updated.
+        elif event == "gollum":
+            icon = "update"
+            msg = u"%s created/updated %s page(s) on the wiki:\n"\
+                  % (user, len(payload["pages"]))
+            for page in payload["pages"]:
+                msg += u"   - %s: %s (%s)\n" % (page["action"], page["title"], page["html_url"])
+
+        # Triggered when an issue comment is created.
+        elif event == "issue_comment":
+            msg = no_message
+
+        # Triggered when a commit comment is created.
+        elif event == "commit_comment":
+            msg = no_message
+
+        # Triggered when an issue is created, closed or reopened.
+        elif event == "issues":
+            action = payload["action"]
+            if action == "closed":
+                icon = "success"
+            else:
+                icon = "create"
+            issue = payload["issue"]
+            url = issue["html_url"]
+            if user == no_user:
+                user = github_user(issue["user"])
+            msg = u"%s %s issue #%s: %s" % (user, action, issue["number"], issue["title"])
+
+        # Triggered when a user is added as a collaborator to a repository.
+        elif event == "member":
+            msg = no_message
+
+        # Triggered when a pull request is created, closed, reopened or synchronized.
+        elif event == "pull_request":
+            pr = payload["pull_request"]
+            action = payload["action"]
+            if action == "closed":
+                if "merged_by" in pr and pr["merged_by"]:
+                    icon = "success"
+                    action = "accepted"
+                    if user == no_user:
+                        user = github_user(pr["merged_by"])
+                else:
+                    icon = "delete"
+            elif action == "opened":
+                icon = "create"
+                if user == no_user:
+                    user = github_user(pr["user"])
+            elif action == "synchronize":
+                icon = "update"
+                action = "updated"
+            else:
+                if user == no_user:
+                    user = github_user(pr["user"])
+            if "changed_files" in pr:
+                changed_files =  pr["changed_files"]
+            else:
+                changed_files = 0
+            ref = clean_git_ref(pr["head"]["ref"])
+            url = pr["html_url"]
+            msg = u"%s %s PR #%s: {%s}, %s changed file(s) on branch [%s]"\
+                  % (user, action, pr["number"], pr["title"], changed_files, ref)
+
+        # Triggered when a comment is created on a portion of the unified diff of a pull request.
+        elif event == "pull_request_review_comment":
+            msg = no_message
+
+        # Triggered when a repository branch is pushed to.
+        elif event == "push":
+            icon = "create"
+            if user == no_user:
+                user = github_user(payload["pusher"])
+            if "size" in payload:
+                size = payload["size"]
+            else:
+                size = len(payload["commits"])
+            url = payload["compare"]
+            msg = u"%s pushed %s commit(s) to [%s]"\
+                  % (user, size, clean_git_ref(payload["ref"]))
+
+        # Triggered when the status of a Git commit changes.
+        elif event == "status":
+            state = payload["state"]
+            handle = True
+            if state == "success":
+                icon = "success"
+            elif state == "failure" or state == "error":
+                icon = "error"
+            else:
+                handle = False
+            if handle:
+                branches = []
+                for branch in payload["branches"]:
+                    branches.append(clean_git_ref(branch["ref"]))
+                branches = u", ".join(branches)
+                sha = payload["sha"][:5]
+                if "target_url" in payload and payload["target_url"]:
+                    url = payload["target_url"]
+                msg = u"commit [%s] status switched to %s on branch(es) [%s]"\
+                      % (sha, state.upper(), branches)
+
+        # Triggered when a user is added to a team or when a repository is added to a team.
+        elif event == "team_add":
+            msg = no_message
+
+        else:
+            msg = no_message
+
+        if msg != no_message:
+            if icon == "create":
+                icon = u"✸"
+            elif icon == "delete":
+                icon = u"✖"
+            elif icon == "update":
+                icon = u"✚"
+            elif icon == "success":
+                icon = u"✔"
+            elif icon == "error":
+                icon = u"☠"
+            else:
+                icon = u"❖"
+            msg = u"%s %s ⥤ %s" % (icon, repo, msg)
+            if url:
+                msg += u" ☛ %s" % url
+            if msg[-1] != u"\n":
+                msg += u"\n"
+
+        return msg
+
 
 class JenkinsNotifier(SendMessage):
 
@@ -241,7 +428,9 @@ def configure(sevabot, settings, server):
     # rule for notifying on github pull requests
     server.add_url_rule('/github-pull-request/<string:chat_id>/<string:shared_secret>/', view_func=GitHubPullRequest.as_view(str('send_message_github_2'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
+    # rule for notifying on github any event
+    server.add_url_rule('/github-any-event/<string:chat_id>/<string:shared_secret>/', view_func=GitHubAnyEvent.as_view(str('send_message_github_3'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
+
     server.add_url_rule('/jenkins-notifier/<string:chat_id>/<string:shared_secret>/', view_func=JenkinsNotifier.as_view(str('send_message_jenkins'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
     server.add_url_rule('/teamcity/<string:chat_id>/<string:shared_secret>/', view_func=TeamcityWebHook.as_view(str('send_message_teamcity'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
-
