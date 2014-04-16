@@ -187,9 +187,9 @@ class GitHubAnyEvent(SendMessage):
     """
 
     def compose(self):
-
-        event = request.form["event"]
         payload = json.loads(request.form["payload"])
+        logger.error("GitHub any event form(%s) payload(%s)" % (u", ".join(dir(request.form))), u", ".join(dir(payload)))
+        event = request.form["event"]
         no_message = u""
         msg = no_message
         icon = "default"
@@ -303,7 +303,6 @@ class GitHubAnyEvent(SendMessage):
                 icon = u"❖"
             msg = u"%s %s" % (icon, msg)
 
-        logger.error("GitHub any event %s" % dir(request.form))
         return msg
 
 
