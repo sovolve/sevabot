@@ -328,7 +328,7 @@ class GitHubAnyEvent(SendMessage):
             if handle:
                 branches = []
                 for branch in payload["branches"]:
-                    branches.append(clean_git_ref(branch["ref"]))
+                    branches.append(clean_git_ref(branch["name"]))
                 branches = u", ".join(branches)
                 sha = payload["sha"][:5]
                 if "target_url" in payload and payload["target_url"]:
