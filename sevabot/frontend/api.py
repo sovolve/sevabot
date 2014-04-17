@@ -270,10 +270,12 @@ class GitHubAnyEvent(SendMessage):
         elif event == "pull_request":
             pr = payload["pull_request"]
             action = payload["action"]
+            thumb = u""
             if action == "closed":
                 if "merged_by" in pr and pr["merged_by"]:
                     icon = "success"
-                    action = "merged"
+                    action = u"merged"
+                    thumb = u"(handshake)"
                     if user == no_user:
                         user = github_user(pr["merged_by"])
                 else:
@@ -284,18 +286,18 @@ class GitHubAnyEvent(SendMessage):
                     user = github_user(pr["user"])
             elif action == "synchronize":
                 icon = "update"
-                action = "updated"
+                action = u"updated"
             else:
                 if user == no_user:
                     user = github_user(pr["user"])
             if "changed_files" in pr:
-                changed_files =  pr["changed_files"]
+                changed_files = pr["changed_files"]
             else:
                 changed_files = 0
             ref = clean_git_ref(pr["head"]["ref"])
             url = pr["html_url"]
-            msg = u"%s %s PR #%s: {%s}, %s changed file(s) on branch [%s]"\
-                  % (user, action, pr["number"], pr["title"], changed_files, ref)
+            msg = u"%s %s %s PR #%s: {%s}, %s changed file(s) on branch [%s]"\
+                  % (thumb, user, action, pr["number"], pr["title"], changed_files, ref)
 
         # Triggered when a comment is created on a portion of the unified diff of a pull request.
         elif event == "pull_request_review_comment":
@@ -321,10 +323,10 @@ class GitHubAnyEvent(SendMessage):
             handle = True
             if state == "success":
                 icon = "success"
-                thumb = "(y)"
+                thumb = u"(y)"
             elif state == "failure" or state == "error":
                 icon = "error"
-                thumb = "(n)"
+                thumb = u"(bug)"
             else:
                 handle = False
             if handle:
