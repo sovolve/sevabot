@@ -321,8 +321,10 @@ class GitHubAnyEvent(SendMessage):
             handle = True
             if state == "success":
                 icon = "success"
+                thumb = "(y)"
             elif state == "failure" or state == "error":
                 icon = "error"
+                thumb = "(n)"
             else:
                 handle = False
             if handle:
@@ -330,11 +332,11 @@ class GitHubAnyEvent(SendMessage):
                 for branch in payload["branches"]:
                     branches.append(clean_git_ref(branch["name"]))
                 branches = u", ".join(branches)
-                sha = payload["sha"][:5]
+                sha = payload["sha"][:7]
                 if "target_url" in payload and payload["target_url"]:
                     url = payload["target_url"]
-                msg = u"commit [%s] status switched to %s on branch(es) [%s]"\
-                      % (sha, state.upper(), branches)
+                msg = u"%s commit [%s] status switched to %s on branch(es) [%s]"\
+                      % (thumb, sha, state.upper(), branches)
 
         # Triggered when a user is added to a team or when a repository is added to a team.
         elif event == "team_add":
